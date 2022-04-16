@@ -296,6 +296,7 @@ class Logger(object):
             elif self._snapshot_mode == "gap_and_last":
                 if itr % self._snapshot_gap == 0:
                     file_name = osp.join(self._snapshot_dir, 'itr_%d.pkl' % itr)
+                    # print(f"TYPE OF PARAMS IS: {params}")
                     torch.save(params, file_name)
                 file_name = osp.join(self._snapshot_dir, 'params.pkl')
                 torch.save(params, file_name)

@@ -111,12 +111,12 @@ NUM_GPUS_AVAILABLE = 4  # change this to the number of gpus on your system
 class Workspace(object):
     def __init__(self, cfg, variant):
         self.work_dir = os.getcwd()
-        print(f'workspace: {self.work_dir}')
+        #print(f'workspace: {self.work_dir}')
         self.cfg = cfg
         self.variant = variant
 
     def experiment(self):
-        print(f"The agent recognised is: {self.cfg.agent}")
+        # print(f"The agent recognised is: {self.cfg.agent}")
         
         self.logger = Logger(self.work_dir,
                             save_tb=self.cfg.log_save_tb,
@@ -198,6 +198,7 @@ class Workspace(object):
 
 
         agent = hydra.utils.instantiate(self.cfg.agent)
+        agent.setLogger(self.logger)
 
     
 

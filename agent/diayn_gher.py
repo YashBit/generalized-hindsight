@@ -79,6 +79,8 @@ class DIAYNGHERAgent(Agent):
         super().__init__()
         
         
+        self.env_name = name_env
+
 
         self.action_range = action_range
         self.device = torch.device(device)
@@ -190,12 +192,13 @@ class DIAYNGHERAgent(Agent):
         
         self.target_qf1, self.target_qf2 = self.critic_target.qValueReturn()
 
-
+        self.logger = None
         self.trainParamSet()
         self.critic_target.train()
 
 
-
+    def setLogger(self, logger):
+        self.logger = logger
     #ORIGINAL
     # def train(self, training=True):
     #     self.training = training
@@ -209,7 +212,7 @@ class DIAYNGHERAgent(Agent):
     #FROM GHER
     
     def train(self, np_batch, training = True):
-       
+        
         self._num_train_steps += 1
         batch = np_to_pytorch_batch(np_batch)
         self.update(batch, self.logger, self._num_train_steps)
@@ -251,6 +254,7 @@ class DIAYNGHERAgent(Agent):
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+        print(f"I AM INSIDE UPDATE CRITIC!")
 
         self.critic.log(logger, step)
 
@@ -332,7 +336,8 @@ class DIAYNGHERAgent(Agent):
         # self.obs_dim_weights was set to a default of 2. 
         
         #Since we are using Alex's RLkit , we can filter the first two
-        next_obs = torch.narrow(next_obs, 1, 0, 2) # -> [1024, 29] -> [1024, 2]
+        if (self.env_name == "AntEnv"):
+            next_obs = torch.narrow(next_obs, 1, 0, 2) # -> [1024, 29] -> [1024, 2]
 
         # print("The shape of next_obs is : {}".format(next_obs.size()))
         # #print("The shape of the array is: {}".format(new_next_obs.size()) )
@@ -372,10 +377,10 @@ class DIAYNGHERAgent(Agent):
         skill = batch['skill']  #256 4 
 
 
-        not_done = batch['not_done']
-        not_dones_no_max =  batch['not_dones_no_max']
+        #not_done = batch['not_done']
+        not_done_no_max =  batch['not_dones_no_max']
 
-        diversity_reward = batch['diversity_reward']
+        # diversity_reward = batch['diversity_reward']
 
 
         #3 ARE MISSING:
@@ -408,7 +413,7 @@ class DIAYNGHERAgent(Agent):
 
         logger.log('train/batch_reward', diversity_reward.mean(), step)
 
-        self.update_critic(obs, action, diversity_reward, next_obs, skill, not_done_no_max,
+        self.update_critic(obs, actions, diversity_reward, next_obs, skill, not_done_no_max,
                            logger, step)
 
         if step % self.actor_update_frequency == 0:

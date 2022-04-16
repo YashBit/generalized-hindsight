@@ -55,6 +55,13 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
 
     def _end_epoch(self, epoch):
         snapshot = self._get_snapshot()
+
+        print(f"EPOCH IS: {epoch}")
+        print(f"SNAPSHOT is: {snapshot}")
+        print(f"Running vanilla GHER: TYPE OF LOGGER {type(logger)}")
+        print(f"Running vanilla GHER: TYPE OF EPOCH {type(epoch)}")
+        print(f"Running vanilla GHER: TYPE OF snapshot {type(snapshot)}")
+
         logger.save_itr_params(epoch, snapshot)
         gt.stamp('saving')
         self._log_stats(epoch)

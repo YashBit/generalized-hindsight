@@ -48,8 +48,8 @@ class DIAYNTaskReplayBuffer(DIAYNSimpleReplayBuffer):
 
         self.latent_dim = latent_dim
 
-        print(f"Type of latent dim: {type(latent_dim)}")
-        print(latent_dim)
+        # print(f"Type of latent dim: {type(latent_dim)}")
+        # print(latent_dim)
   
         # max_replay_buffer_size = 1e6
 
@@ -58,8 +58,8 @@ class DIAYNTaskReplayBuffer(DIAYNSimpleReplayBuffer):
 
         """
         max_replay_buffer_size = cfg.max_replay_buffer_size
-        print(f"Type of max replay : {type(max_replay_buffer_size)}")
-        print(max_replay_buffer_size)
+        # print(f"Type of max replay : {type(max_replay_buffer_size)}")
+        # print(max_replay_buffer_size)
 
         self._latents = np.zeros((max_replay_buffer_size, latent_dim))
         self.relabeler = relabeler
@@ -195,7 +195,7 @@ class DIAYNTaskReplayBuffer(DIAYNSimpleReplayBuffer):
             resampled_zs.append(original_z)
             reward_list.append(self.relabeler.calculate_path_reward(path, original_z))
         if self.add_random_relabeling:
-            random_z = self.agent.sample_skill()
+            random_z = self.agent.skill_dist.sample()
             resampled_zs.append(random_z)
             reward_list.append(self.relabeler.calculate_path_reward(path, random_z))
 
@@ -396,7 +396,7 @@ class DIAYNTaskReplayBuffer(DIAYNSimpleReplayBuffer):
                     
                     self.add_path_fixed_latent(path, r, z)
                 if self.add_random_relabeling:
-                    random_z = self.relabeler.sample_task()
+                    random_z = self.agent.skill_dist.sample()
                     random_r = self.relabeler.calculate_path_reward(path, random_z)
                     self.add_path_fixed_latent(path, random_r, random_z)
                 if self.permute_relabeling:
@@ -446,7 +446,7 @@ class DIAYNTaskReplayBuffer(DIAYNSimpleReplayBuffer):
                 # next_observations=np.concatenate([self._next_obs[indices], self._latents[indices]], axis=1),
                 latents=self._latents[indices],
                 skill = self._skills[indices],
-                not_done = self._not_dones[indices],
+                # not_done = self._not_dones[indices],
                 not_dones_no_max = self._not_dones_no_max[indices]
             )   
 
@@ -654,7 +654,7 @@ class MultiTaskReplayBuffer(SimpleReplayBuffer):
             resampled_zs.append(original_z)
             reward_list.append(self.relabeler.calculate_path_reward(path, original_z))
         if self.add_random_relabeling:
-            random_z = self.relabeler.sample_task()
+            random_z = self.agent.skill_dist.sample()
             resampled_zs.append(random_z)
             reward_list.append(self.relabeler.calculate_path_reward(path, random_z))
 
