@@ -13,6 +13,9 @@
 ## TODO: Run your hyperparameter search in a singularity container. Remember to 
 ## activate your Conda environment in the container before running your Python script.
 
+
+##CHECKOUT FROM NEW HEAD 
+
 singularity \
     exec --nv \
     --bind /usr/share/glvnd/egl_vendor.d/10_nvidia.json \

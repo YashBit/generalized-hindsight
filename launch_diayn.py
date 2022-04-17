@@ -198,7 +198,7 @@ class Workspace(object):
 
 
         agent = hydra.utils.instantiate(self.cfg.agent)
-
+        agent.setLogger(self.logger)
     
 
         #ALGORITHM: SETUP : ADD CASES AND CONTROL FLOW LATER ON

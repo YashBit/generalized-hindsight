@@ -200,7 +200,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
                 self.replay_buffer.add_paths(new_expl_paths)
                 gt.stamp('data storing', unique=False)
-
+                self.trainer.trainParamSet()
                 self.training_mode(True)
                 for _ in range(self.num_trains_per_train_loop):
                     train_data = self.replay_buffer.random_batch(
@@ -215,5 +215,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 # print("Reminder: changed the update target networks functionality")
                 gt.stamp('training', unique=False)
                 self.training_mode(False)
+                self.trainer.trainParamSet(False)
+
 
             self._end_epoch(epoch)

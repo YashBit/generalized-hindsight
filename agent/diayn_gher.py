@@ -190,11 +190,12 @@ class DIAYNGHERAgent(Agent):
         
         self.target_qf1, self.target_qf2 = self.critic_target.qValueReturn()
 
-
+        self.logger = None
         self.trainParamSet()
         self.critic_target.train()
 
-
+    def setLogger(self, logger):
+        self.logger = logger
 
     #ORIGINAL
     # def train(self, training=True):
@@ -372,10 +373,10 @@ class DIAYNGHERAgent(Agent):
         skill = batch['skill']  #256 4 
 
 
-        not_done = batch['not_done']
+        # not_done = batch['not_done']
         not_dones_no_max =  batch['not_dones_no_max']
 
-        diversity_reward = batch['diversity_reward']
+        # diversity_reward = batch['diversity_reward']
 
 
         #3 ARE MISSING:
@@ -408,7 +409,7 @@ class DIAYNGHERAgent(Agent):
 
         logger.log('train/batch_reward', diversity_reward.mean(), step)
 
-        self.update_critic(obs, action, diversity_reward, next_obs, skill, not_done_no_max,
+        self.update_critic(obs, actions, diversity_reward, next_obs, skill, not_dones_no_max,
                            logger, step)
 
         if step % self.actor_update_frequency == 0:
