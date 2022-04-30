@@ -49,7 +49,8 @@ from rlkit.launchers.launcher_util import setup_logger, set_seed, run_experiment
 # from rlkit.torch.sac.sac_gher import SACTrainer
 from rlkit.torch.networks import LatentConditionedMlp
 from rlkit.torch.torch_rl_algorithm import TorchDIAYNBatchRLAlgorithm
-from rlkit.data_management.task_relabeling_replay_buffer import MultiTaskReplayBuffer, DIAYNTaskReplayBuffer
+from rlkit.data_management.task_relabeling_replay_buffer import MultiTaskReplayBuffer
+
 from rlkit.samplers.data_collector.path_collector import TaskConditionedPathCollector, DIAYNTaskConditionedPathCollector
 from rlkit.torch.sac.policies import MakeDeterministicLatentPolicy, LatentConditionedTanhGaussianPolicy, \
     TanhGaussianPolicy
@@ -66,6 +67,7 @@ from rlkit.torch.multitask.ant_direction_relabeler import AntDirectionRelabelerN
 #DIAYN 
 #DIAYN
 from diayn.diayn_relabelers.diayn_ant_relabeler import DIAYNAntDirectionRelabelerNewSparse
+from diayn.diayn_relabelers.diayn_half_cheetah_relabeler import DIAYNHalfCheetahRelabelerMoreFeatures
 #train.py has the configurations for the networks. 
 # from diayn-main.train import Workspace
 
@@ -138,11 +140,11 @@ class Workspace(object):
 
             #Changing the relabeler to the DIAYN ant relabeler.
             relabeler_cls = DIAYNAntDirectionRelabelerNewSparse
-        elif self.variant['env_name'] in {'halfcheetahhard'}:
+        elif self.variant['env_name'] == "HalfCheetahEnv":
             print("halfcheetah")
             expl_env = NormalizedBoxEnv(HalfCheetahEnv())
             eval_env = NormalizedBoxEnv(HalfCheetahEnv())
-            relabeler_cls = HalfCheetahRelabelerMoreFeatures
+            relabeler_cls = DIAYNHalfCheetahRelabelerMoreFeatures
         elif self.variant['env_name'] in {'pointreacherobs'}:
             print('pointreacher')
             expl_env = PointReacherEnv(**self.variant['env_kwargs'])
@@ -232,11 +234,8 @@ class Workspace(object):
 
 
         qf1, qf2 = agent.critic.qValueReturn()
-        print(f"qf1 is : {qf1}, qf2 is: {qf2}")
-
 
         target_qf1, target_qf2 = agent.critic_target.qValueReturn()
-        print(f"target_qf1 is : {target_qf1}, qf2 is: {target_qf2}")
 
 
         #Network creation -> Can be taken directly from DIAYN. NETWORKs instantiated using train.py
@@ -321,18 +320,35 @@ class Workspace(object):
         """
 
         self.variant['relabeler_kwargs']['discount'] = self.variant['trainer_kwargs']['discount']
-        relabeler = relabeler_cls(q1=qf1,
-                                q2=qf2,
-                                agent=agent, 
-                                action_fn=eval_policy.wrapped_policy,
-                                **self.variant['relabeler_kwargs'])
-        eval_relabeler = relabeler_cls(q1=qf1,
+        if self.variant['env_name'] == "AntEnv":
+            relabeler = relabeler_cls(q1=qf1,
                                     q2=qf2,
                                     agent=agent, 
                                     action_fn=eval_policy.wrapped_policy,
-                                    **self.variant['relabeler_kwargs'],
-                                    is_eval=True)
-        
+                                    **self.variant['relabeler_kwargs'])
+            eval_relabeler = relabeler_cls(q1=qf1,
+                                        q2=qf2,
+                                        agent=agent,
+                                        action_fn=eval_policy.wrapped_policy,
+                                        **self.variant['relabeler_kwargs'],
+                                        is_eval=True)
+
+        elif self.variant['env_name'] == "HalfCheetahEnv":
+            
+            relabeler = relabeler_cls(q1=qf1,
+                                    q2=qf2,
+                                    action_fn=eval_policy.wrapped_policy,
+                                    **self.variant['relabeler_kwargs'])
+            eval_relabeler = relabeler_cls(q1=qf1,
+                                        q2=qf2,
+                                        action_fn=eval_policy.wrapped_policy,
+                                        **self.variant['relabeler_kwargs'],
+                                        is_eval=True)
+            relabeler.agentSet(agent)
+            eval_relabeler.agentSet(agent)
+
+
+  
 
         """
             Add control flow for adding agent into the relabeler
@@ -363,11 +379,11 @@ class Workspace(object):
                                             int(cfg.replay_buffer_capacity),
                                             self.device)
 
-        """
-        replay_buffer = DIAYNTaskReplayBuffer(
+        replay_buffer = MultiTaskReplayBuffer(
             agent=agent,
             env=expl_env,
             relabeler=relabeler,
+            alg=self.cfg.alg,
             #Added from above, for the skill_dim, additional parameter so that the DIAYN algorithm can train.
             skill_dim = self.cfg.agent.params.skill_dim,
             cfg = self.cfg,  
@@ -429,7 +445,7 @@ class Workspace(object):
 
 
 global variant
-@hydra.main(config_path='/home/yb1025/Research/GRAIL/relabeler-irl/accelerate-skillDiscovery/generalized-hindsight/diayn-config/train.yaml', strict=True)
+@hydra.main(config_path='/home/yb1025/Research/GRAIL/HUSK/accelerate-skillDiscovery/generalized-hindsight/diayn-config/train.yaml', strict=True)
 def main(cfg):
 
     if cfg.n_experiments != -1:
@@ -456,7 +472,7 @@ def main(cfg):
 
         #MAKE SURE THAT THE ALGO_KWARDS ARE CORRECT
         algo_kwargs=dict(
-            batch_size=256,
+            batch_size=128,
             num_epochs=cfg.epochs,
             num_eval_steps_per_epoch=5000,
             num_expl_steps_per_train_loop=75,
@@ -475,13 +491,14 @@ def main(cfg):
         ),
         replay_buffer_kwargs=dict(
             max_replay_buffer_size=100000,
-            latent_dim=3,
+            latent_dim=int(3),
             approx_irl=cfg.irl,
             plot=cfg.plot,
         ),
         relabeler_kwargs=dict(
             relabel=cfg.relabel,
             use_adv=cfg.use_advantages,
+            alg=cfg.alg,
             n_sampled_latents=cfg.n_sampled_latents,
             n_to_take=cfg.n_to_take,
             cache=cfg.cache,
@@ -532,22 +549,22 @@ def main(cfg):
         variant['trainer_kwargs']['discount'] = 0.99
         variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 1000
         variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
-        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 25000
+        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 0
         variant['algo_kwargs']['min_num_steps_before_training'] = 1000
         variant['replay_buffer_kwargs']['max_replay_buffer_size'] = cfg.max_replay_buffer_size
         variant['qf_kwargs']['hidden_sizes'] = [256, 256]
         variant['policy_kwargs']['hidden_sizes'] = [256, 256]
         variant['env_kwargs'] = dict(use_xy=True, contact_forces=cfg.contact_forces)
         exp_postfix = 'horizon{}'.format(variant['algo_kwargs']['max_path_length'])
-    elif cfg.env in {'halfcheetahhard'}:
+    elif cfg.env == "HalfCheetahEnv":
         variant['replay_buffer_kwargs']['latent_dim'] = 4
         variant['algo_kwargs']['max_path_length'] = 1000
         variant['trainer_kwargs']['discount'] = 0.99
         variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 1000
         variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
-        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 25000
+        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 0
         variant['algo_kwargs']['min_num_steps_before_training'] = 1000
-        variant['replay_buffer_kwargs']['max_replay_buffer_size'] = int(1E6)
+        variant['replay_buffer_kwargs']['max_replay_buffer_size'] = cfg.max_replay_buffer_size
         variant['qf_kwargs']['hidden_sizes'] = [256, 256]
         variant['policy_kwargs']['hidden_sizes'] = [256, 256]
         exp_postfix = ''

@@ -88,8 +88,9 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             snapshot['exploration/' + k] = v
         for k, v in self.eval_data_collector.get_snapshot().items():
             snapshot['evaluation/' + k] = v
-        for k, v in self.replay_buffer.get_snapshot().items():
-            snapshot['replay_buffer/' + k] = v
+        # for k, v in self.replay_buffer.get_snapshot().items():
+        #     snapshot['replay_buffer/' + k] = v
+
         
         return snapshot
 

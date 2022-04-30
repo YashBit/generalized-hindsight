@@ -127,7 +127,7 @@ class DIAYNBatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 )
                 print(f"MAX PATH LENGTH IN BATCH RL is : {self.max_path_length}")
                 gt.stamp('exploration sampling', unique=False)
-
+                print(f"IN epoch NUMBER: {epoch}")
 
                 #THE ADD_PATHS, should return the new data points in the replay_buffer, : skills, not_done, not_done_no_max.
                 # print(f"new_expl_paths keys are: {new_expl_paths.keys()}")
@@ -141,6 +141,8 @@ class DIAYNBatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                     However, it is coming out to be 1 all the time.
 
                 """
+
+                print(f"Num train loops per epoch is: {self.num_train_loops_per_epoch}")
                 
                 
                 self.replay_buffer.add_paths(new_expl_paths)

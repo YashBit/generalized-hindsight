@@ -197,6 +197,7 @@ class DIAYNGHERAgent(Agent):
         # FROM THE TRAINER IN sac_gher
 
         self._num_train_steps = 0
+        self.env_name = name_env
 
 
         #RETURN FUNCTION FOR THE NETWORKS TAKEN FROM GHER"
@@ -226,9 +227,16 @@ class DIAYNGHERAgent(Agent):
         self.logger = logger
     
     def train(self, np_batch, training = True):
-       
+        print("I AM INSIDE CORRECT TRAIN FUNCTION IN DIAYN GHER")
         self._num_train_steps += 1
         batch = np_to_pytorch_batch(np_batch)
+
+        """
+            SHOULD THE NUM TRAIN STEPS BE DECIDING ANYTHING? 
+
+            IS IT FOLLOWING THE CORRECT LOGIC?
+
+        """
         self.update(batch, self.logger, self._num_train_steps)
 
     @property
@@ -253,6 +261,8 @@ class DIAYNGHERAgent(Agent):
 
     def update_critic(self, obs, action, reward, next_obs, skill, not_done, logger,
                       step):
+        print("I AM INSIDE: UPDATE CRITIC")
+
         dist = self.actor(next_obs, skill)
         next_action = dist.rsample()
         log_prob = dist.log_prob(next_action).sum(-1, keepdim=True)
@@ -276,6 +286,8 @@ class DIAYNGHERAgent(Agent):
         self.critic.log(logger, step)
 
     def update_discriminator(self, obs, skill, next_obs, logger, step):
+        print("I AM INSIDE: DISCRIMINATOR")
+
         next_obs = torch.narrow(next_obs, 1, 0, 2)
         skills_pred = self.discriminator(next_obs * self.obs_dim_weights)
         # TODO(Mahi): Figure out if this line is correct
@@ -293,6 +305,8 @@ class DIAYNGHERAgent(Agent):
 
 
     def update_actor_and_alpha(self, obs, skill, logger, step):
+        print("I AM INSIDE: ACTOR AND ALPHA")
+
         dist = self.actor(obs, skill)
         action = dist.rsample()
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
@@ -322,7 +336,27 @@ class DIAYNGHERAgent(Agent):
             self.log_alpha_optimizer.step()
 
     def compute_lone_diversity_reward(self, skill, next_obs):
-        next_obs = next_obs[:2]
+        device = torch.device("cuda")
+
+        #print(f"IN COMPUTE LONE DIVERSITY REWARD: {skill}")
+        if (isinstance(skill, list)):
+            skill = torch.as_tensor(skill, device = device).float()
+            next_obs = torch.from_numpy(next_obs).float().to(device)
+        import numpy as np
+        # print(f"The type of next_obs: {type(next_obs)}")
+        # next_obs = next_obs.cpu().detach().numpy()
+        # print(f"Type of next obs after conversion: {type(self.obs_dim_weights)}")
+        if isinstance(next_obs, (np.ndarray, np.generic)):
+            next_obs = next_obs[:2]
+            next_obs = torch.from_numpy(next_obs).float().to(device)
+        else:
+            next_obs = next_obs.cpu().detach().numpy()
+            next_obs = next_obs[:2]
+            next_obs = torch.from_numpy(next_obs).float().to(device)
+
+        # print(f"NEXT OBS IS: {next_obs}")
+
+        #next_obs = torch.narrow(next_obs, 1, 0, 2)
         skills_log_prob = self.skill_dist.log_prob(skill)
         state_prob_logits = self.discriminator(next_obs * self.obs_dim_weights)
         # print(f"state_prob_logits is: {state_prob_logits}, the shape is : {state_prob_logits.shape}")
@@ -335,17 +369,27 @@ class DIAYNGHERAgent(Agent):
         # print(f"discriminator_prob is: {discriminator_prob}, discriminator shape is : {discriminator_prob.shape}")
         # print(f"skills_log_prob is : {skills_log_prob}, skills_log_prob shape is : {skills_log_prob.shape}")
         return discriminator_prob - skills_log_prob, False 
-    def compute_diversity_reward(self, skill, next_obs):
+    def compute_diversity_reward(self, skill, next_obs, singularSkill=False):
         device = torch.device("cuda")
-
+        # print(f"SKILL RECEIVED BEFORE CONVERSION : {skill}")
 
         if (isinstance(skill, list)):
+            print(f"SKILL IF INSTANCE")
             skill = torch.as_tensor(skill, device = device).float()
             next_obs = torch.from_numpy(next_obs).float().to(device)
 
-        
-        
-        skills_log_prob = self.skill_dist.log_prob(skill).unsqueeze_(1)
+        # print(f"SKILL RECEIVED AFTER CONVERSION : {skill}")
+
+        if not singularSkill:
+            skills_log_prob = self.skill_dist.log_prob(skill).unsqueeze_(1)
+        else:
+            if isinstance(skill, (np.ndarray, np.generic)):
+                # print(f"AGAIN INSIDE ISISNTANCE")
+                skill = torch.from_numpy(skill).to(device)
+
+            # print(f"THE TYPE OF SKILL IS: {type(skill)}")
+            skills_log_prob = self.skill_dist.log_prob(skill)
+
         # print(f"The unsqueeze shape is : {skill.unsqueeze_(1)}")
         #print("The shape of next_obs is :  {}, the shape of self.obs_dim_weights is :{}".format(next_obs.shape, self.obs_dim_weights.shape))
         
@@ -353,7 +397,17 @@ class DIAYNGHERAgent(Agent):
         # self.obs_dim_weights was set to a default of 2. 
         
         #Since we are using Alex's RLkit , we can filter the first two
-        next_obs = torch.narrow(next_obs, 1, 0, 2) # -> [1024, 29] -> [1024, 2]
+        if isinstance(next_obs, (np.ndarray, np.generic)):
+            next_obs = torch.from_numpy(next_obs).float().to(device)
+
+            
+        if self.env_name == "AntEnv":
+            next_obs = torch.narrow(next_obs, 1, 0, 2)
+             # -> [1024, 29] -> [1024, 2]
+        elif self.env_name == "HalfCheetahEnv":
+            #print(f"The next obs in HalfCheetah Are: {next_obs.shape}, the type is : {type(next_obs)}")
+            pass 
+            
 
         # print("The shape of next_obs is : {}".format(next_obs.size()))
         # #print("The shape of the array is: {}".format(new_next_obs.size()) )
@@ -391,6 +445,8 @@ class DIAYNGHERAgent(Agent):
         
         
         skill = batch['skill']  #256 4 
+
+        print("I AM INSIDE: UPDATE")
 
 
         not_dones_no_max =  batch['not_dones_no_max']
